@@ -1,0 +1,433 @@
+---
+title: "Tutorial: Notes app"
+description: Tutorial showing how to build a Notes app with Cubits and bloc_superpowers.
+---
+
+import { Code } from '@astrojs/starlight/components';
+import notesAppCode from './notes_app_code.dart?raw';
+
+Let's build a Notes app that:
+
+- Loads notes from a server (with retry if it fails)
+- Adds, deletes and searches notes
+- Shows loading spinners and error messages
+
+Here are the features of `bloc_superpowers` that we will use:
+
+| Feature                     | What It Does                                    | How                                |
+|-----------------------------|-------------------------------------------------|------------------------------------|
+| `mix(key: ...)`             | Gives superpowers to the Cubits                 | Wraps the Cubit method code        |
+| `context.isWaiting(key)`    | Show spinners and disable buttons while loading | Returns `true` while running       |
+| `context.isFailed(key)`     | Show error messages when something fails        | Returns `true` if failed           |
+| `context.getException(key)` | Get the error message to display                | Gets the error message             |
+| `UserException`             | Allows writing user-friendly error messages     | Throw this from your Cubit methods |
+| `UserExceptionDialog`       | Show error dialog automatically                 | Wraps the widget tree              |
+| `retry`                     | Retries failed requests                         | Is a mix() function parameter      |
+| `fresh`                     | Skips loading if data is still fresh            | Is a mix() function parameter      |
+| `nonReentrant`              | Prevents double-tap                             | Is a mix() function parameter      |
+| `debounce`                  | Waits for typing to stop                        | Is a mix() function parameter      |
+| `Effect`                    | Sends one-time signal from Cubit to UI          | Add effects to your Cubit state    |
+| `context.effect()`          | Clears the textfield in the UI                  | Returns the effect value only once |
+
+## Step 1: Setup
+
+First, add bloc_superpowers to your `pubspec.yaml`:
+
+```yaml
+dependencies:
+  bloc_superpowers: ^1.0.0
+  flutter_bloc: ^9.1.1
+  fast_immutable_collections: ^11.1.0 # Allow us to use IList (immutable List)
+```
+
+Run `flutter pub get`
+
+---
+
+## Step 2: Create the Note Model
+
+We need a simple class to hold note data:
+
+```dart
+class Note {
+  final String id;
+  final String text;
+  final DateTime createdAt;
+
+  Note({required this.id, required this.text, required this.createdAt});
+}
+```
+
+This is just a normal class. Nothing special here.
+
+---
+
+## Step 3: Create the State
+
+Our state holds the list of notes, the search query, and an Effect:
+
+```dart
+class NotesState {
+  final IList<Note> notes;
+  final String searchQuery;
+  final Effect clearInputEffect;
+
+  NotesState({
+    Iterable<Note>? notes,
+    this.searchQuery = '',
+    Effect? clearInputEffect,
+  })  : notes = IList.orNull(notes) ?? const IList.empty(),
+        clearInputEffect = clearInputEffect ?? Effect.spent();
+
+  bool get isEmpty => notes.isEmpty;
+
+  NotesState copyWith({ ... });
+
+  /// Returns a new state without the note with the given id.
+  NotesState removeNote(String id) =>
+      copyWith(notes: notes.where((n) => n.id != id).toIList());
+
+  /// Returns notes filtered by the search query.
+  IList<Note> get filteredNotes {
+    if (searchQuery.isEmpty) return notes;
+    final query = searchQuery.toLowerCase();
+    return notes.where((n) => n.text.toLowerCase().contains(query)).toIList();
+  }
+}
+```
+
+Key points:
+
+- The notes list is of type `IList`, an immutable list from the
+  `fast_immutable_collections` package. Using it is optional, and we could have declared
+  it as `List<Note> notes`.
+
+- The `clearInputEffect` is a one-time signal that orders the UI to clear the text field.
+  It starts as `Effect.spent()` (meaning "no signal yet"). More on that later.
+
+- `removeNote` is a helper method that encapsulates state changes.
+
+- `filteredNotes` returns notes that match the search query.
+
+---
+
+## Step 4: Create the Cubit
+
+Now the fun part! We create a Cubit with superpowers.
+
+### The `mix()` Function
+
+The `mix()` function wraps your async code and gives it superpowers. The basic format is:
+
+```dart
+mix(
+  key: someKey,
+  () async {
+    // Your code here
+  },
+);
+```
+
+The **key** is very important. It tells the system which operation is running. You can
+use:
+
+- `key: this` means the key is the Cubit type
+- A string like `key: 'addNote'` to identify specific operations
+- A tuple like `key: ('deleteNote', noteId)` for operations on specific items
+
+### Load Notes with retry and fresh
+
+```dart
+class NotesCubit extends Cubit<NotesState> {
+  NotesCubit() : super(NotesState());
+
+  void loadNotes({bool force = false}) {
+    mix(
+      key: this,
+      fresh: fresh(ignoreFresh: force),
+      retry: retry,
+      () async {
+        final notes = await api.fetchNotes();
+        emit(state.copyWith(notes: notes.toIList()));
+      },
+    );
+  }
+}
+```
+
+Let's break this down:
+
+**`key: this`**
+
+- Uses `NotesCubit` as the key
+- Later, `context.isWaiting(NotesCubit)` will return `true` while loading
+
+**`fresh: fresh(ignoreFresh: force)`**
+
+- If `loadNotes()` ran recently, skip it
+- The data is still "fresh", no need to reload
+- Pass `force: true` to bypass freshness check (like pull-to-refresh)
+
+**`retry: retry`**
+
+- If the request fails, try again up to 3 more times
+- Wait 350ms before the first retry, then 700ms, then 1400ms
+- This is called "exponential backoff"
+
+### Add Note with nonReentrant and UserException
+
+```dart
+void addNote(String text) {
+  mix(
+    key: 'addNote',
+    nonReentrant: nonReentrant,
+    catchError: (error, stack) {
+      throw UserException('Failed to add note').addReason(error.toString());
+    },
+    () async {
+      // Validate input - the error will be caught by catchError above.
+      if (text.trim().isEmpty) throw StateError("Note can't be empty.");
+
+      final newNote = await api.saveNote(text);
+
+      emit(state.copyWith(
+        notes: state.notes.add(newNote),
+        clearInputEffect: Effect(),
+      ));
+    },
+  );
+}
+```
+
+**`key: 'addNote'`**
+
+- Uses the string `'addNote'` as the key
+- `context.isWaiting('addNote')` will return `true` while adding
+
+**`nonReentrant: nonReentrant`**
+
+- If the user taps "Add" twice fast, only the first tap runs
+- The second tap is ignored (no error, just skipped)
+- This prevents creating duplicate notes
+
+**`catchError`**
+
+- If any error happens, wrap it in a UserException
+- The UserExceptionDialog will show this message to the user
+
+**`throw StateError("Note can't be empty.")`**
+
+- Validate input and throw if invalid
+- The `catchError` handler wraps this in a `UserException`
+
+**`clearInputEffect: Effect()`**
+
+- Send a signal to the UI: "clear the text field"
+- The UI will read this once, then it becomes "spent"
+
+### Search with debounce
+
+```dart
+void search(String query) {
+  mix(
+    key: 'search',
+    debounce: debounce,
+    () async {
+      emit(state.copyWith(searchQuery: query));
+    },
+  );
+}
+```
+
+**`debounce: debounce`**
+
+- If the user types "hello" fast, we don't want 5 searches (h, he, hel, hell, hello)
+- Debounce waits until the user stops typing for 300ms
+- Then it runs only once with the final value "hello"
+
+### Delete Note
+
+```dart
+void removeNote(String noteId) {
+  mix(
+    key: ('deleteNote', noteId),
+    () async {
+      await api.deleteNote(noteId);
+
+      // This demonstrates encapsulating state
+      // changes in the state class itself.
+      emit(state.removeNote(noteId));
+    },
+  );
+}
+```
+
+**`key: ('deleteNote', noteId)`**
+
+- Uses a tuple as the key
+- Each note has its own key
+- `context.isWaiting(('deleteNote', 'note_1'))` checks if note_1 is being deleted
+
+---
+
+## Step 5: Build the App
+
+Wrap your app with `Superpowers` and `UserExceptionDialog`:
+
+```dart
+class NotesApp extends StatelessWidget {
+  const NotesApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Superpowers(
+      child: BlocProvider(
+        create: (_) => NotesCubit()..loadNotes(),
+        child: MaterialApp(
+          title: 'Notes Tutorial',
+          home: UserExceptionDialog(
+            child: const NotesScreen(),
+          ),
+        ),
+      ),
+    );
+  }
+}
+```
+
+**`Superpowers`**
+
+- Put this near the top of your widget tree
+- It makes `context.isWaiting()` and `context.isFailed()` work
+
+**`UserExceptionDialog`**
+
+- Shows an error dialog when a `UserException` is thrown
+- Put it right below `MaterialApp`
+- You don't need to do anything else - errors show automatically
+
+---
+
+## Step 6: Show Loading States
+
+Use `context.isWaiting()` to check if an operation is running:
+
+```dart
+class RefreshButton extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final isLoading = context.isWaiting(NotesCubit);
+
+    return isLoading
+        ? CircularProgressIndicator()
+        : IconButton(
+            icon: Icon(Icons.refresh),
+            onPressed: () => context.read<NotesCubit>().loadNotes(force: true),
+          );
+  }
+}
+```
+
+The key passed to `isWaiting()` must match the key used in `mix()`:
+
+- `context.isWaiting(NotesCubit)` - matches `key: this` in NotesCubit
+- `context.isWaiting('addNote')` - matches `key: 'addNote'`
+- `context.isWaiting(('deleteNote', noteId))` - matches `key: ('deleteNote', noteId)`
+
+The widget rebuilds automatically when the loading state changes.
+
+---
+
+## Step 7: Show Error States
+
+Use `context.isFailed()` and `context.getException()`:
+
+```dart
+class ErrorMessage extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+
+    final errorMessage = context.getException(NotesCubit)!.message;
+
+    return Container(
+      padding: EdgeInsets.all(12),
+      color: Colors.red.shade50,
+      child: Row(
+        children: [
+          Icon(Icons.error, color: Colors.red),
+          SizedBox(width: 8),
+          Text(errorMessage),
+          TextButton(
+            onPressed: () => context.read<NotesCubit>().loadNotes(force: true),
+            child: Text('Retry'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+```
+
+**`context.getException(NotesCubit)!.message`**
+
+- Returns the UserException that was thrown
+- Since the widget is only shown when `isFailed` is true, we can safely use `!`
+- Use `.message` to get the error message
+
+The error state clears automatically when you call the method again.
+
+---
+
+## Step 8: Use Effect
+
+An Effect is a one-time signal from your Cubit to your UI. For example:
+
+- "Clear the text field"
+- "Show a snackbar"
+- "Navigate to another screen"
+
+Once the UI reads the Effect, it becomes "spent" and won't trigger again.
+
+Use `context.effect()` to consume one-time signals:
+
+```dart
+class AddNoteInput extends StatefulWidget {
+  @override
+  State<AddNoteInput> createState() => _AddNoteInputState();
+}
+
+class _AddNoteInputState extends State<AddNoteInput> {
+  final _controller = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    // Consume the effect
+    final shouldClear = context.effect((NotesCubit c) => c.state.clearInputEffect);
+    if (shouldClear == true) _controller.clear();
+
+    return TextField(
+      controller: _controller,
+      decoration: InputDecoration(hintText: 'Add a note...'),
+      onSubmitted: (text) => context.read<NotesCubit>().addNote(text),
+    );
+  }
+}
+```
+
+**`context.effect((NotesCubit c) => c.state.clearInputEffect)`**
+
+- Returns `true` if the effect was just triggered
+- Returns `false` if the effect is "spent" (already consumed)
+- The effect is consumed when you read it
+
+In the Cubit, trigger the effect with:
+
+```dart
+emit(state.copyWith(clearInputEffect: Effect()));
+```
+
+---
+
+## The final code
+
+<Code code={notesAppCode} lang="dart" title="notes_app_code.dart" />
