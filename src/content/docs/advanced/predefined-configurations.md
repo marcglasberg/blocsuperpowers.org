@@ -12,7 +12,7 @@ the `config` parameter with `MixConfig` to avoid repetition and ensure consisten
 
 Create a reusable configuration:
 
-```dart
+```dart         
 // Define once
 const checkInternetRetryAndLog = MixConfig(
   retry: retry(maxRetries: 5, initialDelay: 1.sec),
