@@ -16,73 +16,83 @@ class UserCubit extends Cubit<User> {
 }
 ```
 
-Wrap the Cubit method with the `mix` function, and give it a `key`:
-
-```dart
-class UserCubit extends Cubit<User> {
-  UserCubit() : super(User());
-
-  void loadData() => mix(      
-    key: this,
-    () {
-      // Do something.
-    });  
-}
-```
-
-### Loading and error states
-
-There is no need to add `isLoading` and `error` variables to your state anymore.
-
-Just load what you want to load, and throw an error if something fails:
+Wrap the Cubit method body with the `mix` function and provide a key.
+In most cases, the Cubit instance itself is used as the key (just write `key: this`):
 
 ```dart
 class UserCubit extends Cubit<User> {
   UserCubit() : super(User());
 
   void loadData() => mix(
-    key: this, 
-    () async {
-      var user = await api.loadUser();
-      if (user == null) throw UserException('Failed to load');
-      emit(user);
-    });
-  } 
+    key: this,
+    () {
+      // Do something
+    },
+  );
 }
 ```
 
-Then, use `isWaiting()` and `isFailed()` in your widgets:
+### Loading and error states
+
+With `mix`, you no longer need to add `isLoading` or `error` variables to your state.
+
+Instead, your Cubit method should focus only on loading data and emitting a new state.
+If something goes wrong, throw an exception:
+
+```dart
+class UserCubit extends Cubit<User> {
+  UserCubit() : super(User());
+
+  void loadData() => mix(
+    key: this,
+    () async {
+      final user = await api.loadUser();
+      if (user == null) throw UserException('Failed to load');
+      emit(user);
+    },
+  );
+}
+```
+
+In your widgets, you can react to the loading and error states
+using `isWaiting()` and `isFailed()`:
 
 ```dart
 class MyWidget extends StatelessWidget {
-  
   Widget build(BuildContext context) {
-    if (context.isWaiting(UserCubit)) return CircularProgressIndicator();
-    if (context.isFailed(UserCubit)) return Text('Error loading');
-    return Text('Loaded: ${context.watch<UserCubit>().state}');
+    if (context.isWaiting(UserCubit)) {
+      return CircularProgressIndicator();
+    }
+    if (context.isFailed(UserCubit)) {
+      return Text('Error loading');
+    }
+    return Text(
+      'Loaded: ${context.watch<UserCubit>().state}',
+    );
   }
 }
 ```
 
 ### Error dialog
 
-To show error dialogs when your Cubit methods throw errors,
+To show error dialogs when your Cubit methods throw exceptions,
 add a `UserExceptionDialog` widget below your `MaterialApp`:
 
 ```dart
 return MaterialApp(
-  home: UserExceptionDialog( // Or use UserExceptionToast          
+  home: UserExceptionDialog( // Or use UserExceptionToast
     child: const HomePage(),
-  ),        
+  ),
 );
 ```
+
+---
 
 ## Mix parameters
 
 ### Retry
 
-To retry a failed method with exponential backoff,
-add `retry: retry` to the `mix` function.
+To retry a failed method using exponential backoff, add `retry: retry` to the `mix` function:
 
 ```dart
 class UserCubit extends Cubit<User> {
@@ -90,58 +100,77 @@ class UserCubit extends Cubit<User> {
 
   void loadData() => mix(
     key: this,
-    retry: retry, // Here!
-    () { 
-      // Do something 
-    });  
+    retry: retry, // Enables retry
+    () {
+      // Do something
+    },
+  );
 }
 ```
 
-Modify its behavior with optional parameters:
+You can customize the retry behavior using optional parameters such as the number of retries,
+delay, and backoff multiplier:
 
 ```dart
 mix(
   key: this,
-  retry: retry(maxRetries: 10, initialDelay: 350.millis, multiplier: 2, maxDelay: 5.sec),
+  retry: retry(
+    maxRetries: 10,
+    initialDelay: 350.millis,
+    multiplier: 2,
+    maxDelay: 5.sec,
+  ),
   ...
+);
 ```
 
-### Non Reentrant
+### Non reentrant
 
-Use `nonReentrant: nonReentrant` to prevent a method to run more than once simultaneously.
+Use `nonReentrant: nonReentrant` to prevent a method from running more than once at the same time.
+
+If the method is already running, additional calls will be ignored until it completes.
 
 ```dart
 mix(
   key: this,
   nonReentrant: nonReentrant,
   ...
+);
 ```
 
-### Check Internet
+### Check internet
 
-Use `checkInternet: checkInternet` to
-abort the method if there is no internet connection,
+Use `checkInternet: checkInternet` to abort the method when there is no internet connection
 and show an error dialog to the user.
 
 ```dart
 void loadData() {
   mix(
-    key: this,    
+    key: this,
     checkInternet: checkInternet,
     ...
+  );
+}
 ```
 
-Modify its behavior with optional parameters:
+You can modify this behavior using optional parameters.
+For example, you can abort silently or prevent the dialog from opening if one is already visible:
 
 ```dart
 mix(
   key: this,
-  checkInternet: checkInternet(abortSilently: true, ifOpenDialog: false),
+  checkInternet: checkInternet(
+    abortSilently: true,
+    ifOpenDialog: false,
+  ),
   ...
+);
 ```
 
-To keep retrying until the internet comes back, combine it with `retry.unlimited`.
-This is great for loading important data when the app starts:
+To keep retrying until the internet connection is restored,
+combine `checkInternet` with `retry.unlimited`.
+
+This is useful for loading important data when the app starts:
 
 ```dart
 mix(
@@ -149,84 +178,104 @@ mix(
   checkInternet: checkInternet(maxRetryDelay: 1.sec),
   retry: retry.unlimited,
   ...
+);
 ```
+
+---
 
 ### Fresh
 
-Use `fresh: fresh` to treat the result of a method as _fresh_ for some time.
-Repeated calls to the method are skipped, until the period ends and the method
-is allowed to run again.
+Use `fresh: fresh` to treat the result of a method as fresh for a period of time.
+While the result is considered fresh, repeated calls to the method are skipped.
+Once the freshness period ends, the method is allowed to run again.
 
 ```dart
 void loadData() {
   mix(
-    key: this,    
+    key: this,
     fresh: fresh, // Default is 1 second of freshness
     ...
+  );
+}
 ```
 
-Modify its behavior with optional parameters:
+You can change how long the result stays fresh using optional parameters:
 
 ```dart
 mix(
   key: this,
   fresh: fresh(freshFor: 10.sec),
   ...
+);
 ```
 
-For example, when you enter a screen it loads some information.
-When you quickly leave and re-enter the screen, the information is still valid.
-Only if you leave for a longer time, the information will be reloaded when you return.
+For example, when you enter a screen, it loads some information.
+If you quickly leave and re-enter the screen, the information is still valid.
+Only if you stay away longer will the information be reloaded when you return.
 
 ### Debounce
 
-Use `debounce: debounce` so that a method will only execute after it stops being called
-for some time.
+Use `debounce: debounce` to delay method execution
+until it stops being called for a period of time.
+
+This is useful when a method is triggered frequently, such as while typing.
 
 ```dart
 void loadData() {
   mix(
-    key: this,    
+    key: this,
     debounce: debounce, // Default is 300 milliseconds
     ...
+  );
+}
 ```
 
-For example, if you type "hello" quickly, instead of 5 API calls
-(for "h", "he", "hel", "hell", "hello"), only one call is made after the user
+For example, if you type "hello" quickly, instead of making five API calls
+(for "h", "he", "hel", "hell", and "hello"), only one call is made after the user
 stops typing for 300 milliseconds.
 
-Modify its behavior with optional parameters:
+You can modify the debounce duration using optional parameters:
 
 ```dart
 mix(
   key: this,
   debounce: debounce(duration: 2.sec),
   ...
+);
 ```
+
+---
 
 ### Throttle
 
-Use `throttle: throttle` to rate-limit a method.
-The first call executes immediately,
-but next calls are aborted until the throttle period ends.
+Use `throttle: throttle` to rate limit a method.
+The first call runs immediately.
+Any later calls are ignored until the throttle period ends.
 
 ```dart
 void loadData() {
   mix(
-    key: this,    
-    throttle: throttle, // Default is 1 second 
+    key: this,
+    throttle: throttle, // Default is 1 second
     ...
+  );
+}
 ```
 
-This is useful for things like refresh buttons, scroll handlers, or API polling.
+This is useful for actions that should not run too often,
+such as refresh buttons, scroll handlers, or API polling.
 
-Modify its behavior with optional parameters:
+You can customize the throttle behavior using optional parameters:
 
 ```dart
 void refreshPosts({bool force = false}) {
   mix(
     key: this,
-    throttle: throttle(ignoreThrottle: force, removeLockOnError: true, duration: 5.sec),
+    throttle: throttle(
+      ignoreThrottle: force,
+      removeLockOnError: true,
+      duration: 5.sec,
+    ),
     ...
   );
 }
@@ -235,11 +284,14 @@ void refreshPosts({bool force = false}) {
 With this setup:
 
 * `refreshPosts()` respects the throttle period.
-* `refreshPosts(force: true)` executes immediately and resets the throttle timer.
+* `refreshPosts(force: true)` runs immediately and resets the throttle timer.
 
 ### Sequential
 
-Use `sequential: sequential` to force method calls to execute one at a time, in order.
+Use `sequential: sequential` to ensure that method calls run one at a time,
+in the order they were called.
+
+Each call waits for the previous one to finish before starting.
 
 ```dart
 void processOrder(Order order) {
@@ -247,76 +299,86 @@ void processOrder(Order order) {
     key: this,
     sequential: sequential, // Queue orders and process one at a time
     ...
+  );
 }
 ```
 
-By default, the queue size is unlimited and there is no timeout,
-but you can add limits with optional parameters:
+By default, the queue has no size limit and no timeout.
+You can add limits using optional parameters:
 
 ```dart
 mix(
   key: this,
-  sequential: sequential(maxQueueSize: 10, queueTimeout: 30.sec),
+  sequential: sequential(
+    maxQueueSize: 10,
+    queueTimeout: 30.sec,
+  ),
   ...
+);
 ```
 
-By default, when the queue is full or items time out, **newer** method calls are dropped.
+By default, when the queue is full or items time out, newer method calls are dropped.
 
-You can instead enforce a "latest wins" semantics,
-so that older calls are dropped,
-and only the newest waiting call is kept in the queue.
+You can change this to a "latest wins" behavior,
+where older queued calls are dropped and only the most recent waiting call is kept:
 
 ```dart
 mix(
   key: this,
   sequential: sequential.latestWins,
   ...
+);
 ```
-
-This is useful for things like processing user actions
-where only the latest action matters.
 
 ---
 
 ## How keys work
 
-The `mix` function has a main `key` parameter that identifies the action:
+The `mix` function uses a main `key` parameter to identify an action.
 
 ```dart
 class UserCubit extends Cubit<User> {
   UserCubit() : super(User());
 
-  void loadData() => mix(      
-    key: this, // Here!
+  void loadData() => mix(
+    key: this, // Here
     () {
-      // Do something.
-    });  
+      // Do something
+    },
+  );
 }
 ```
 
-If you use `key: this`, this is the same as writing `key: runtimeType`,
-which in the above example is the same as writing `key: UserCubit`.
+When you use `key: this`, it is the same as `key: runtimeType`,
+because `mix` treats Cubit instance keys as their runtime-type.
+In the example above, both resolve to `UserCubit`.
 
-In your widgets you can then use `context.isWaiting(UserCubit)` and `context.isFailed(UserCubit)`:
+Because of this, your widgets can reference the same key to check loading and error states:
 
 ```dart
 class MyWidget extends StatelessWidget {
-  
+
   Widget build(BuildContext context) {
-    if (context.isWaiting(UserCubit)) return CircularProgressIndicator();
-    if (context.isFailed(UserCubit)) return Text('Error');
-    return Text('Loaded: ${context.watch<UserCubit>().state}');
+    if (context.isWaiting(UserCubit)) return CircularProgressIndicator();    
+    if (context.isFailed(UserCubit)) return Text('Error');    
+    return Text('Loaded: ${context.watch<UserCubit>().state}',
+    );
   }
 }
 ```
 
-The key can also be a string:
+### Using different key types
+
+Keys are not limited to types. You can use any value that uniquely identifies the action.
+
+The key can be a string:
 
 ```dart
 // In the Cubit
-mix(      
-  key: 'someKey', // Here!
-  ...  
+mix(
+  key: 'someKey', // Here
+  ...
+);
 
 // In the widget
 if (context.isWaiting('someKey')) return CircularProgressIndicator();
@@ -329,37 +391,44 @@ The key can also be an enum value:
 enum ActionType { loadUser, saveSettings }
 
 // In the Cubit
-mix(      
-  key: ActionType.loadUser, // Here!
+mix(
+  key: ActionType.loadUser, // Here
   ...
-  
+);
+
 // In the widget
 if (context.isWaiting(ActionType.loadUser)) return CircularProgressIndicator();
 if (context.isFailed(ActionType.loadUser)) return Text('Error');
 ```
 
-The key can also be a Dart record:
+The key can also be a Dart record, which is useful when the action depends on parameters:
 
 ```dart
 class UserCubit extends Cubit<User> {
   UserCubit() : super(User());
 
-  void loadUser(String userId) => mix(      
-    key: (LoadUser, userId), // Here!
+  void loadUser(String userId) => mix(
+    key: (UserCubit, userId), // Here
     () {
-      // Do something.
-    });  
+      // Do something
+    },
+  );
 }
-  
+```
+
+```dart
 // In the widget
-if (context.isWaiting((LoadUser, userId))) return CircularProgressIndicator();
-if (context.isFailed((LoadUser, userId))) return Text('Error');
-``` 
+if (context.isWaiting((UserCubit, userId))) return CircularProgressIndicator();
+if (context.isFailed((UserCubit, userId))) return Text('Error');
+```
 
 ### Override keys
 
-You can use more than one key to achieve different granularity for different features,
-since `retry`, `fresh`, `debounce`, `throttle`, and `sequential` all accept their own `key` parameter:
+While `mix` has a main `key`, 
+parameters `retry`, `fresh`, `debounce`, `throttle`, and `sequential`
+each accept their own `key` parameter.
+
+This lets you control granularity by tracking state with one key while applying behavior with another.
 
 ```dart
 void loadUser(String userId) {
@@ -371,114 +440,145 @@ void loadUser(String userId) {
     ),
     () async {
       var user = await api.loadUser(userId);
-      emit(state.copyWith(users: {...state.users, userId: user}));
-    }
+      emit(
+        state.copyWith(
+          users: {...state.users, userId: user},
+        ),
+      );
+    },
   );
 }
 ```
 
-In this example, `context.isWaiting(UserCubit)` tracks whether any load is in progress,
-but loading user "A" doesn't affect the freshness of user "B"
-         
+In this example, `context.isWaiting(UserCubit)` reflects whether any user is currently loading.
+At the same time, freshness is tracked separately for each user ID.
+
+Loading user "A" does not affect the freshness of user "B".
+
 ---
 
-## Advanced Features
+## Advanced features
 
-* You can customize the default configurations globally for your app. Example:
+### Global defaults
 
-  ```dart
-  RetryConfig.defaults = retry(
-    maxRetries: 5,
-    initialDelay: 200.millis,
-    multiplier: 2.0,
-    maxDelay: 10.sec,
-  );
-  ```
+You can customize default configurations globally for your app.
 
-* You can use the `mix.ctx` function to have access to internal information,
-  such as the current retry attempt number or sequential queue position. Example:
+For example, to change the default retry behavior:
 
-  ```dart  
-  mix.ctx( // Instead of `mix`
-    key: this,                         
-    retry: retry,
-    sequential: sequential,
-    (ctx) async { // We have access to `ctx` 
-      var attempt = ctx.retry!.attempt,     
-      var wasQueued = ctx.sequential!.wasQueued;    
-      var index = ctx.sequential!.index;   
-      ...
-    },  
-  ```  
+```dart
+RetryConfig.defaults = retry(
+  maxRetries: 5,
+  initialDelay: 200.millis,
+  multiplier: 2.0,
+  maxDelay: 10.sec,
+);
+```
 
-* If you add a `catchError` param to your `mix` function, you can handle errors there.
-  You can suppress errors, rethrow them, or wrap them in user-friendly exceptions:
+### Accessing internal context
 
-  ```dart
-  // Log and suppress all errors
-  mix(
-    key: this,
-    catchError: (error, stackTrace) {
-      logError(error, stackTrace);      
-    },
+You can use `mix.ctx` instead of `mix` to access internal information, such as retry attempts or queue position.
+
+```dart
+mix.ctx(
+  key: this,
+  retry: retry,
+  sequential: sequential,
+  (ctx) async {
+    var attempt = ctx.retry!.attempt;
+    var wasQueued = ctx.sequential!.wasQueued;
+    var index = ctx.sequential!.index;
     ...
-  
-  // Log and rethrow all errors
-  mix(
-    key: this,
-    catchError: (error, stackTrace) {
-      logError(error, stackTrace);
-      throw error; // Respects the original stack trace
-    },
-    ...
-  
-  // Wrap all errors in a UserException
-  mix(
-    key: this,
-    catchError: (error, stackTrace) {
-      // Respects the original stack trace
-      throw UserException('Operation failed').addCause(error);
-    },
-    ...
-  ```
+  },
+);
+```
 
-* You can create predefined configurations that you can reuse.
+### Error handling with `catchError`
 
-  ```dart
-  // Check internet, retry, and log start/finish/error messages       
-  const checkInternetRetryAndLog = MixConfig(
-    checkInternet: checkInternet,
-    retry: retry,
-    before: () => Log.info("Starting"),
-    after: () => Log.info("Finished"),
-    catchError: (error, stackTrace) => Log.error("Failed", error),
-  );
-                                                                         
-  // Later, use it in the `config` parameter
-  mix(
-    key: this,
-    config: checkInternetRetryAndLog, // Here!
-    ...
-  ```
+If you add a `catchError` parameter, you can handle errors directly inside `mix`.
+
+You can suppress errors, rethrow them, or wrap them in user-friendly exceptions.
+
+Log and suppress all errors:
+
+```dart
+mix(
+  key: this,
+  catchError: (error, stackTrace) {
+    logError(error, stackTrace);
+  },
+  ...
+);
+```
+
+Log and rethrow all errors:
+
+```dart
+mix(
+  key: this,
+  catchError: (error, stackTrace) {
+    logError(error, stackTrace);
+    throw error; // Preserves the original stack trace
+  },
+  ...
+);
+```
+
+Wrap all errors in a `UserException`:
+
+```dart
+mix(
+  key: this,
+  catchError: (error, stackTrace) {
+    throw UserException('Operation failed').addCause(error);
+  },
+  ...
+);
+```
+
+### Reusable configurations
+
+You can define reusable configurations and apply them using the `config` parameter.
+
+```dart
+// Check internet, retry, and log start, finish, and error messages
+const checkInternetRetryAndLog = MixConfig(
+  checkInternet: checkInternet,
+  retry: retry,
+  before: () => Log.info('Starting'),
+  after: () => Log.info('Finished'),
+  catchError: (error, stackTrace) => Log.error('Failed', error),
+);
+```
+
+Later, reuse the configuration:
+
+```dart
+mix(
+  key: this,
+  config: checkInternetRetryAndLog, // Here
+  ...
+);
+```
 
 ---
 
 ## Presets
 
-Instead of using the `mix` function directly,
-you can create and use your own reusable functions by defining a **preset**.
+Instead of calling the `mix` function directly every time, you can define reusable functions called **presets**.
 
-For example, here is a function that checks the internet, retries up to five times,
-and logs when the function starts, finishes, or fails. It also wraps all errors in a `UserException`.
+A preset bundles a common configuration so it can be reused across your app.
+
+For example, the following preset checks for an internet connection, retries up to five times, logs when the operation
+starts and finishes, and wraps all errors in a `UserException`.
 
 ```dart
 // Define once
 const checkInternetRetryAndLog() = MixPreset(
-  key: key,
+  key: this,
   checkInternet: checkInternet,
   retry: retry(maxRetries: 5),
-  before: () => Log.info("Starting"),
-  after: () => Log.info("Finished"),
+  before: () => Log.info('Starting'),
+  after: () => Log.info('Finished'),
   catchError: (error, stackTrace) {
     logError(error);
     throw UserException('Operation failed').addCause(error);
@@ -486,12 +586,12 @@ const checkInternetRetryAndLog() = MixPreset(
 );
 ```
 
-Use it like this:
+You can then use the preset like a regular function:
 
 ```dart
 void fetchUsers() {
-  checkInternetRetryAndLog( // Here!
-    key: this,    
+  checkInternetRetryAndLog( // Here
+    key: this,
     () async {
       final users = await api.getUsers();
       emit(state.copyWith(users: users));
@@ -504,35 +604,36 @@ void fetchUsers() {
 
 ## The optimistic functions
 
-The Superpowers package comes with three functions for optimistic UI updates.
-They all allow you to update the UI immediately while sending changes to the server.
-Depending on what happens in the server call, they can roll back changes,
-reload from the server, or send follow-up requests.
+The Superpowers package provides three functions for optimistic UI updates.
 
-* `optimisticCommand` is for **blocking** operations that represent a **command**,
-  something you want to run on the server once per call.
+They allow you to update the UI immediately while sending changes to the server.
+Based on the server response, they can roll back changes, reload data, or issue follow-up requests.
 
-* `optimisticSync` is for **non-blocking** operations where only the final value matters
-  and intermediate values can be skipped, with eventual consistency with the server.
+* `optimisticCommand` is for **blocking** operations that represent a **command**, something that should run on the
+  server once per call.
 
-* `optimisticSyncWithPush` is similar to `optimisticSync` but supports
-  **server-pushed updates** and multi-device writes with "last write wins" semantics.
+* `optimisticSync` is for **non-blocking** operations where only the final value matters and intermediate values can be
+  skipped, while still reaching eventual consistency with the server.
 
-To use these functions, you have to provide some easy-to-implement callbacks,
-and the functions take care of the rest, doing the complex optimistic logic for you.
+* `optimisticSyncWithPush` is similar to `optimisticSync` but also supports **server-pushed updates** and multi-device
+  writes using "last write wins" semantics.
 
-This is an example implementation for you to get the gist of it:
+To use these functions, you provide a few straightforward callbacks.
+The functions handle the complex optimistic logic for you.
+
+Here is an example implementation to illustrate the idea:
 
 ```dart
 class TodoCubit extends Cubit<TodoState> {
   TodoCubit() : super(TodoState());
 
   void addTodo(Todo newTodo) {
-    await optimisticCommand(
+    optimisticCommand(
       key: (AddTodo, newTodo.id),
       optimisticValue: () => state.todoList.add(newTodo),
       getValueFromState: (state) => state.todoList,
-      applyValueToState: (state, value) => state.copyWith(todoList: value as IList<Todo>),
+      applyValueToState: (state, value) =>
+        state.copyWith(todoList: value as IList<Todo>),
       sendCommandToServer: (optimisticValue) async {
         await api.saveTodo(newTodo);
         return null;
@@ -546,58 +647,75 @@ class TodoCubit extends Cubit<TodoState> {
 
 ## Effects
 
-Effects are one-time notifications stored in your state, used to trigger side effects in
-widgets such as showing dialogs, clearing text fields, or navigating to new screens.
-They replace `BlocListener`, but are much easier to use.
+Effects are one-time notifications stored in your state.
+They are used to trigger side effects in widgets, such as showing dialogs, clearing text fields,
+or navigating to new screens.
 
-Effects are automatically "consumed" (marked as spent) after
-being read, ensuring they only trigger once.
-They can be consumed directly in the `build` method of your widgets,
-using `context.effect()`.
+Effects replace `BlocListener` but are much easier to use.
 
-To demonstrate, pretend your Cubit needs to be able to clear a text field and change its text.
-We declare two effects in the state, `clearEffect` and `changeTextEffect`:
+Effects are automatically consumed after being read, which ensures they only trigger once.
+
+You can read and consume effects directly inside the `build` method using `context.effect()`.
+
+To demonstrate, assume your Cubit needs to clear a text field and also update its text.
+You define two effects in the state: `clearEffect` and `changeTextEffect`.
 
 ```dart
 // In your state
 class UserState {
   final User? user;
-  final Effect<bool> clearEffect; // Here!
-  final Effect<String> changeTextEffect; // Here!
-  
-  UserState(this.user, Effect<bool>? clearEffect, Effect<String>? changeTextEffect)
-    : clearEffect = clearEffect ?? Effect.spent(),
+  final Effect<bool> clearEffect; // Here
+  final Effect<String> changeTextEffect; // Here
+
+  UserState(
+    this.user,
+    Effect<bool>? clearEffect,
+    Effect<String>? changeTextEffect,
+  ) : clearEffect = clearEffect ?? Effect.spent(),
       changeTextEffect = changeTextEffect ?? Effect.spent();
-      
+
   UserState copyWith({ ... });
 }
+```
 
-// In your Cubit method, create new effects with `Effect()`
-void clearText() => emit(state.copyWith(clearEffect: Effect(true)));
-void changeText(String newText) => emit(state.copyWith(changeTextEffect: Effect(newText)));
+In your Cubit, create new effects using `Effect()`:
 
-// In your widget, use `context.effect`
+```dart
+void clearText() =>
+  emit(state.copyWith(clearEffect: Effect(true)));
+
+void changeText(String newText) =>
+  emit(state.copyWith(changeTextEffect: Effect(newText)));
+```
+
+In your widget, read and consume the effects using `context.effect()`:
+
+```dart
 Widget build(BuildContext context) {
 
   var clear = context.effect((UserCubit c) => c.state.clearEffect);
   if (clear) controller.clear();
-  
+
   var newText = context.effect((UserCubit c) => c.state.changeTextEffect);
   if (newText != null) controller.text = newText;
-  
+
   return TextField(controller: controller);
 }
 ```
 
+---
+
 ## EffectQueue
 
-Effect queues allow you to trigger multiple side effects in a sequence.  
-The Cubit emits a list of values, and the widget provides a handler
-that interprets each value.
+Effect queues allow you to trigger multiple side effects in a specific order.
 
-It ensures the proper order of UI operations like showing a toast,
-then a dialog, then navigating.
-You can even choose between executing all effects in one frame in order, or one per frame.
+The Cubit emits a list of effects, and the widget provides a handler that interprets each effect.
+
+This makes it easy to coordinate UI actions like showing a toast, then a dialog, then navigating to another screen.
+
+You can choose to execute all effects in order within a single frame, or one effect per frame.
+
+### Defining effects
 
 First, define the possible UI effects:
 
@@ -621,15 +739,20 @@ class Navigate extends UiEffect {
 }
 ```
 
-Your state must have a list of effects:
+### Adding the queue to state
+
+Your state includes an `EffectQueue`:
 
 ```dart
 class AppState {
   final EffectQueue<UiEffect> effectQueue;
   ...
+}
 ```
 
-Your Cubit describes what should happen using the `UiEffect` objects:
+### Emitting effects from the Cubit
+
+The Cubit describes what should happen by emitting `UiEffect` objects in order:
 
 ```dart
 void triggerSequentialEffects() {
@@ -640,38 +763,46 @@ void triggerSequentialEffects() {
         ShowToast('Welcome!'),
         ShowDialog('Info', 'You have arrived.'),
       ],
-      (remaining) => emit(state.copyWith(effectQueue: remaining)),
+      (remaining) =>
+        emit(state.copyWith(effectQueue: remaining)),
     ),
   ));
 }
 ```
 
-In your widget, use `context.effectQueue` to execute the effects:
+### Handling effects in the widget
+
+In your widget, use `context.effectQueue` to process the effects:
 
 ```dart
 Widget build(BuildContext context) {
 
   context.effectQueue<AppCubit, UiEffect>(
-    
-    // Select the queue  
+
+    // Select the queue
     (cubit) => cubit.state.effectQueue,
-    
-    // Process all effects at once (in order) or one per frame
-    onePerFrame: true, 
-    
+
+    // Execute one effect per frame or all at once
+    onePerFrame: true,
+
     (context, effect) => switch (effect) {
-      // Handle showing a toast
+
+      // Show a toast
       ShowToast(:final message) =>
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message))),
-        
-      // Handle showing a dialog
+        ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message))),
+
+      // Show a dialog
       ShowDialog(:final title, :final content) =>
         showDialog(
           context: context,
-          builder: (_) => AlertDialog(title: Text(title), content: Text(content)),
+          builder: (_) => AlertDialog(
+            title: Text(title),
+            content: Text(content),
+          ),
         ),
-        
-      // Handle navigation
+
+      // Navigate
       Navigate(:final route) =>
         Navigator.of(context).pushNamed(route),
     },
@@ -680,6 +811,8 @@ Widget build(BuildContext context) {
   return Text('My App');
 }
 ```
+
+---
 
 ## List of features
 
