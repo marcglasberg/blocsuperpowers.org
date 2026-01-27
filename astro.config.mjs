@@ -7,11 +7,13 @@ export default defineConfig({
   integrations: [
     starlight({
       title: 'Bloc Superpowers',
+      customCss: ['./src/styles/custom.css'],
       social: [
         {icon: 'github', label: 'GitHub', href: 'https://github.com/marcglasberg/bloc_superpowers'},
       ],
       components: {
         SocialIcons: './src/components/SocialIcons.astro',
+        Hero: './src/components/Hero.astro',
       },
       sidebar: [
         {

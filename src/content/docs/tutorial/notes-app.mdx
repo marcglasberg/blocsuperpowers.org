@@ -3,6 +3,14 @@ title: "Tutorial: Notes app"
 description: Tutorial showing how to build a Notes app with Cubits and bloc_superpowers.
 ---
 
+
+
+
+
+
+
+
+
 import { Code } from '@astrojs/starlight/components';
 import notesAppCode from './notes_app_code.dart?raw';
 
@@ -11,6 +19,11 @@ Let's build a Notes app that:
 - Loads notes from a server (with retry if it fails)
 - Adds, deletes and searches notes
 - Shows loading spinners and error messages
+
+<img src="/notes_app_screenshot1.png" alt="Notes app screenshot"
+     style="border: 8px solid #bbb; border-radius: 12px; display: block; margin: 30px auto;"/>
+
+&nbsp;
 
 Here are the features of `bloc_superpowers` that we will use:
 
@@ -99,11 +112,11 @@ class NotesState {
 Key points:
 
 - The notes list is of type `IList`, an immutable list from the
-  `fast_immutable_collections` package. Using it is optional, and we could have declared
-  it as `List<Note> notes`.
+`fast_immutable_collections` package. Using it is optional, and we could have declared
+it as `List<Note> notes`.
 
 - The `clearInputEffect` is a one-time signal that orders the UI to clear the text field.
-  It starts as `Effect.spent()` (meaning "no signal yet"). More on that later.
+It starts as `Effect.spent()` (meaning "no signal yet"). More on that later.
 
 - `removeNote` is a helper method that encapsulates state changes.
 
@@ -174,6 +187,11 @@ Let's break this down:
 - Wait 350ms before the first retry, then 700ms, then 1400ms
 - This is called "exponential backoff"
 
+_Note the API call in `await api.fetchNotes()` was set up to fail to demonstrate retries.
+It will fail on the 3rd, 5th, 6th, 7th, and 8th fetches.
+You can't see the 3rd failure because it retries automatically and succeeds on the 4th attempt.
+However, the 5th attempt will keep retrying until it finally fails and shows an error. Try it!_
+
 ### Add Note with nonReentrant and UserException
 
 ```dart
@@ -210,20 +228,28 @@ void addNote(String text) {
 - The second tap is ignored (no error, just skipped)
 - This prevents creating duplicate notes
 
-**`catchError`**
+**`clearInputEffect: Effect()`**
 
-- If any error happens, wrap it in a UserException
-- The UserExceptionDialog will show this message to the user
+- Send a signal to the UI: "clear the text field"
+- The UI will read this once, then it becomes "spent"
 
 **`throw StateError("Note can't be empty.")`**
 
 - Validate input and throw if invalid
 - The `catchError` handler wraps this in a `UserException`
 
-**`clearInputEffect: Effect()`**
+**`catchError`**
 
-- Send a signal to the UI: "clear the text field"
-- The UI will read this once, then it becomes "spent"
+- If any error happens, wrap it in a `UserException`
+- The `UserExceptionDialog` will show this message to the user
+
+_Note that throwing a `StateError` and then catching it to convert to a `UserException`
+in a `catchError` block is just to demonstrate the feature.
+We could have directly thrown a `UserException` instead:
+`if (text.trim().isEmpty) throw UserException("Note can't be empty.");`_
+
+<img src="/notes_app_screenshot2.png" alt="Notes app screenshot"
+     style="border: 8px solid #bbb; border-radius: 12px; display: block; margin: 30px auto;"/>
 
 ### Search with debounce
 
@@ -244,6 +270,9 @@ void search(String query) {
 - If the user types "hello" fast, we don't want 5 searches (h, he, hel, hell, hello)
 - Debounce waits until the user stops typing for 300ms
 - Then it runs only once with the final value "hello"
+
+<img src="/notes_app_screenshot3.png" alt="Notes app screenshot"
+     style="border: 8px solid #bbb; border-radius: 12px; display: block; margin: 30px auto;"/>
 
 ### Delete Note
 
@@ -430,4 +459,4 @@ emit(state.copyWith(clearInputEffect: Effect()));
 
 ## The final code
 
-<Code code={notesAppCode} lang="dart" title="notes_app_code.dart" />
+<Code code={notesAppCode} lang="dart" title="notes_app_code.dart"/>

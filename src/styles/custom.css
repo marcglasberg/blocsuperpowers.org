@@ -1,0 +1,4 @@
+/* Reduce hero section vertical spacing */
+.hero {
+  padding-block: 1rem;
+}

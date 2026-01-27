@@ -1,0 +1,32 @@
+---
+import Default from '@astrojs/starlight/components/Hero.astro';
+---
+
+<Default><slot /></Default>
+
+<script>
+  const tagline = document.querySelector('.hero .tagline');
+  if (tagline) {
+    const extra = document.createElement('div');
+    extra.className = 'hero-extra-line';
+    extra.innerHTML = 'On <a href="https://pub.dev/packages/bloc_superpowers">pub.dev</a> since Jan 2025';
+    tagline.after(extra);
+  }
+</script>
+
+<style is:global>
+  .hero-extra-line {
+    margin-bottom: 1rem;
+    font-size: clamp(1rem, calc(0.5rem + 1.5vw), 1.25rem);
+    color: var(--sl-color-gray-2);
+  }
+
+  .hero-extra-line a {
+    color: var(--sl-color-text-accent);
+    text-decoration: underline;
+  }
+
+  .hero-extra-line a:hover {
+    opacity: 0.8;
+  }
+</style>

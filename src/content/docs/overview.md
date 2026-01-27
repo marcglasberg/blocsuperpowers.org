@@ -414,33 +414,33 @@ but loading user "A" doesn't affect the freshness of user "B"
 * If you add a `catchError` param to your `mix` function, you can handle errors there.
   You can suppress errors, rethrow them, or wrap them in user-friendly exceptions:
 
-```dart
-// Log and suppress all errors
-mix(
-  key: this,
-  catchError: (error, stackTrace) {
-    logError(error, stackTrace);      
-  },
-  ...
-
-// Log and rethrow all errors
-mix(
-  key: this,
-  catchError: (error, stackTrace) {
-    logError(error, stackTrace);
-    throw error; // Respects the original stack trace
-  },
-  ...
-
-// Wrap all errors in a UserException
-mix(
-  key: this,
-  catchError: (error, stackTrace) {
-    // Respects the original stack trace
-    throw UserException('Operation failed').addCause(error);
-  },
-  ...
-```
+  ```dart
+  // Log and suppress all errors
+  mix(
+    key: this,
+    catchError: (error, stackTrace) {
+      logError(error, stackTrace);      
+    },
+    ...
+  
+  // Log and rethrow all errors
+  mix(
+    key: this,
+    catchError: (error, stackTrace) {
+      logError(error, stackTrace);
+      throw error; // Respects the original stack trace
+    },
+    ...
+  
+  // Wrap all errors in a UserException
+  mix(
+    key: this,
+    catchError: (error, stackTrace) {
+      // Respects the original stack trace
+      throw UserException('Operation failed').addCause(error);
+    },
+    ...
+  ```
 
 * You can create predefined configurations that you can reuse.
 
@@ -551,7 +551,7 @@ widgets such as showing dialogs, clearing text fields, or navigating to new scre
 They replace `BlocListener`, but are much easier to use.
 
 Effects are automatically "consumed" (marked as spent) after
-being read, ensuring they only trigger once. 
+being read, ensuring they only trigger once.
 They can be consumed directly in the `build` method of your widgets,
 using `context.effect()`.
 
@@ -682,7 +682,7 @@ Widget build(BuildContext context) {
 ```
 
 ## List of features
-   
+
 And, that's it! Here is a summary of all the features provided by the Superpowers package:
 
 * `context.isWaiting()`: Use it to show spinners or loading indicators when a Cubit is
