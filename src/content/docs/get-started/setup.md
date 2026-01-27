@@ -89,3 +89,12 @@ Widget build(BuildContext context) {
 * [`EffectQueue`](/effects/effect-queues): Class that allows Cubits to emit queued one-time effects to the UI,
   ensuring they are shown one after the other.
 
+* [`globalCatchError`](/advanced/global-catch-error): Set a global error handler for all mix calls in your app.
+  Log errors, show friendly messages, or convert API errors to user exceptions in one place.
+
+* [`observer`](/advanced/global-observer): Set up a global observer to track all mix calls for performance tracking,
+  analytics, debugging, and monitoring.
+
+* [`props`](/advanced/props): Key-value storage for shared data like timers and streams that gets
+  automatically cleaned up on logout or in tests.
+
