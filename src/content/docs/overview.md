@@ -17,7 +17,7 @@ class UserCubit extends Cubit<User> {
 ```
 
 Wrap the Cubit method body with the `mix` function and provide a key.
-In most cases, the Cubit instance itself is used as the key (just write `key: this`):
+Write `key: this` to use the Cubit instance itself as the key.
 
 ```dart
 class UserCubit extends Cubit<User> {
@@ -36,8 +36,8 @@ class UserCubit extends Cubit<User> {
 
 With `mix`, you no longer need to add `isLoading` or `error` variables to your state.
 
-Instead, your Cubit method should focus only on loading data and emitting a new state.
-If something goes wrong, throw an exception:
+Instead, your Cubit method can focus on loading data and emitting a new state.
+If something goes wrong, you may now just throw an exception:
 
 ```dart
 class UserCubit extends Cubit<User> {
@@ -59,16 +59,11 @@ using `isWaiting()` and `isFailed()`:
 
 ```dart
 class MyWidget extends StatelessWidget {
+
   Widget build(BuildContext context) {
-    if (context.isWaiting(UserCubit)) {
-      return CircularProgressIndicator();
-    }
-    if (context.isFailed(UserCubit)) {
-      return Text('Error loading');
-    }
-    return Text(
-      'Loaded: ${context.watch<UserCubit>().state}',
-    );
+    if (context.isWaiting(UserCubit)) return CircularProgressIndicator();    
+    if (context.isFailed(UserCubit)) return Text('Error loading');
+    return Text('Loaded: ${context.watch<UserCubit>().state}');
   }
 }
 ```
