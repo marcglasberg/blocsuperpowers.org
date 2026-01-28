@@ -34,7 +34,7 @@ class UserCubit extends Cubit<User> {
 
 ### Loading and error states
 
-With `mix`, you no longer need to add `isLoading` or `error` variables to your state.
+With `mix`, you no longer need to add `isLoading` or `errorMessage` fields to your state.
 
 Instead, your Cubit method can focus on loading data and emitting a new state.
 If something goes wrong, you may now just throw an exception:
