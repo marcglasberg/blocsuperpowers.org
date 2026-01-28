@@ -1,0 +1,125 @@
+---
+// Footer component for the homepage only
+import { Image } from 'astro:assets';
+import logo from '../assets/superpowers.png';
+---
+
+<footer class="homepage-footer">
+  <div class="footer-content">
+    <div class="footer-links">
+      <div class="footer-column">
+        <h3>Bloc Superpowers</h3>
+        <ul>
+          <li><a href="https://pub.dev/packages/bloc_superpowers">pub.dev</a></li>
+          <li><a href="https://github.com/marcglasberg/bloc_superpowers">GitHub</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-column">
+        <h3>My links</h3>
+        <ul>
+          <li><a href="https://glasberg.dev">Personal website</a></li>
+          <li><a href="https://www.linkedin.com/in/marcglasberg/">LinkedIn</a></li>
+          <li><a href="https://stackoverflow.com/users/3411681/marcelo-glasberg">Stack Overflow</a></li>
+          <li><a href="https://twitter.com/GlasbergMarcelo">Twitter</a></li>
+          <li><a href="https://pub.dev/publishers/glasberg.dev/packages">Flutter packages</a></li>
+          <li><a href="https://www.npmjs.com/settings/marcglasberg/packages">React packages</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-column">
+        <h3>More from me</h3>
+        <ul>
+          <li><a href="https://asyncredux.com">Async Redux for Flutter</a></li>
+          <li><a href="https://kissforreact.org/">Kiss State for React</a></li>
+          <li><a href="https://medium.com/flutter-community/i18n-extension-flutter-b966f4c65df9">Translate your Flutter app</a></li>
+          <li><a href="https://medium.com/flutter-community/announcing-fic-fast-immutable-collections-5eb091d1e31f">Fast Immutable Collections</a></li>
+          <li><a href="https://medium.com/flutter-community/the-new-way-to-create-themes-in-your-flutter-app-7fdfc4f3df5f">Easy Themes</a></li>
+          <li><a href="https://medium.com/flutter-community/flutter-the-advanced-layout-rule-even-beginners-must-know-edc9516d1a2">The Advanced Layout Rule</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      <Image src={logo} alt="Bloc Superpowers Logo" class="footer-logo" width={80} />
+      <p class="copyright">
+        Copyright &copy; 2026 Marcelo Glasberg
+      </p>
+    </div>
+  </div>
+</footer>
+
+<style>
+  .homepage-footer {
+    background: var(--sl-color-black);
+    color: var(--sl-color-gray-2);
+    padding: 3rem 1.5rem 2rem;
+    margin-top: 3rem;
+  }
+
+  .footer-content {
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .footer-links {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 2rem;
+    margin-bottom: 2rem;
+  }
+
+  .footer-column h3 {
+    color: var(--sl-color-white);
+    font-size: var(--sl-text-base);
+    font-weight: 600;
+    margin: 0 0 1rem 0;
+  }
+
+  .footer-column ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .footer-column li {
+    margin-bottom: 0.5rem;
+  }
+
+  .footer-column a {
+    color: var(--sl-color-gray-2);
+    text-decoration: none;
+    font-size: var(--sl-text-sm);
+    transition: color 0.2s ease;
+  }
+
+  .footer-column a:hover {
+    color: var(--sl-color-white);
+  }
+
+  .footer-bottom {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--sl-color-gray-5);
+    text-align: center;
+  }
+
+  .footer-logo {
+    opacity: 0.8;
+  }
+
+  .copyright {
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-3);
+    margin: 0;
+  }
+
+  @media (max-width: 600px) {
+    .footer-links {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
