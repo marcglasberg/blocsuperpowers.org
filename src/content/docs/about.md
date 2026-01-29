@@ -1,6 +1,8 @@
 ---
 title: About
 description: About Bloc Superpowers.
+sidebar:
+  order: 1000
 ---
 
 _Bloc Superpowers is developed by **Marcelo Glasberg**_<br>
