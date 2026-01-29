@@ -45,6 +45,7 @@ export default defineConfig({
           label: 'Optimistic functions',
           autogenerate: {directory: 'optimistic-functions'},
         },
+        { label: 'Claude Code Skills', slug: 'claude-code-skills' },
         { label: 'About', slug: 'about' },
       ],
     }),

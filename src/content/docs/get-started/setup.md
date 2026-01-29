@@ -98,3 +98,6 @@ Widget build(BuildContext context) {
 * [`props`](/advanced/props): Key-value storage for shared data like timers and streams that gets
   automatically cleaned up on logout or in tests.
 
+* [Claude Code Skills](/claude-code-skills): Use AI to help you write and improve code that uses Bloc Superpowers.
+  
+
