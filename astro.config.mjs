@@ -1,9 +1,12 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
+import { unified } from '@astrojs/markdown-remark';
 
 // https://astro.build/config
 export default defineConfig({
+  compressHTML: true,
+  markdown: { processor: unified() },
   site: 'https://blocsuperpowers.org',
   integrations: [
     starlight({
@@ -27,23 +30,23 @@ export default defineConfig({
         },
         {
           label: 'Get started',
-          autogenerate: {directory: 'get-started'},
+          items: [{ autogenerate: {directory: 'get-started'} }],
         },
         {
           label: 'Mix function',
-          autogenerate: {directory: 'mix-function'},
+          items: [{ autogenerate: {directory: 'mix-function'} }],
         },
         {
           label: 'Effects',
-          autogenerate: {directory: 'effects'},
+          items: [{ autogenerate: {directory: 'effects'} }],
         },
         {
           label: 'Advanced',
-          autogenerate: {directory: 'advanced'},
+          items: [{ autogenerate: {directory: 'advanced'} }],
         },
         {
           label: 'Optimistic functions',
-          autogenerate: {directory: 'optimistic-functions'},
+          items: [{ autogenerate: {directory: 'optimistic-functions'} }],
         },
         { label: 'Claude Code Skills', slug: 'claude-code-skills' },
         { label: 'About', slug: 'about' },
